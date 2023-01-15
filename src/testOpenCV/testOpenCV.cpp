@@ -1,3 +1,6 @@
+#include <windows.h>
+#include <shobjidl.h>
+#include <errno.h>
 #include <iostream>
 #include <fstream>
 #include <cassert>
@@ -6,6 +9,8 @@
 #include <opencv2/highgui.hpp>
 
 using namespace std;
+
+std::string storedFilePath = "";
 
 void printMatrix(cv::Mat& mat)
 {
@@ -40,7 +45,100 @@ void readMatrixFromFile(std::string matFile, float *mat)
 	in.close();
 }
 
-int main(int argc, char* argv[]) {
+std::string openFileWindow()
+{
+    PWSTR pszFilePath = L"";
+    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED |
+        COINIT_DISABLE_OLE1DDE);
+    if (SUCCEEDED(hr))
+    {
+        IFileOpenDialog *pFileOpen;
+
+        // Create the FileOpenDialog object.
+        hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
+            IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
+
+        if (SUCCEEDED(hr))
+        {
+            // Show the Open dialog box.
+            hr = pFileOpen->Show(NULL);
+
+            // Get the file name from the dialog box.
+            if (SUCCEEDED(hr))
+            {
+                IShellItem *pItem;
+                hr = pFileOpen->GetResult(&pItem);
+                if (SUCCEEDED(hr))
+                {
+                    
+                    hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+
+                    // Display the file name to the user.
+                    /*if (SUCCEEDED(hr))
+                    {
+                        MessageBoxW(NULL, pszFilePath, L"File Path", MB_OK);
+                        CoTaskMemFree(pszFilePath);
+                    }*/
+                    pItem->Release();
+                }
+            }
+            pFileOpen->Release();
+        }
+        CoUninitialize();
+    }
+    if ((wcslen(pszFilePath)) == 0)
+        return "";
+    //return string, need to convert to std::string
+    string str;
+    DWORD dwMinSize = 0;
+    LPSTR lpszStr = NULL;
+    dwMinSize = WideCharToMultiByte(CP_OEMCP, NULL, pszFilePath, -1, NULL, 0, NULL, FALSE);
+    if (0 == dwMinSize)
+    {
+        return FALSE;
+    }
+    lpszStr = new char[dwMinSize];
+    WideCharToMultiByte(CP_OEMCP, NULL, pszFilePath, -1, lpszStr, dwMinSize, NULL, FALSE);
+    str = lpszStr;
+    delete[] lpszStr;
+    CoTaskMemFree(pszFilePath);
+    return str;
+
+}
+
+
+int main(int argc, char* argv[]) 
+{
+    cv::Mat movingImage, fixedImage;
+
+    std::string movingPath = openFileWindow();
+    if (movingPath == "")
+    {
+        std::cout << "Error: No Moving Image" << std::endl;
+        return -1;
+    }
+    //"E:\\code\\UltraSound\\Registration\\MedicalImageRegistration\\src\\testMedicalRegistrationFromSrc\\testData\\t2.png";
+    movingImage = cv::imread(movingPath, cv::IMREAD_COLOR);
+    if (!movingImage.data) {
+        printf("No image data \n");
+        return -1;
+    }
+
+    //fixed image reading
+    std::string fixedPath = openFileWindow();
+    if (fixedPath == "")
+    {
+        std::cout << "Error: No Fixed Image" << std::endl;
+        return -1;
+    }
+        //"E:\\code\\UltraSound\\Registration\\MedicalImageRegistration\\src\\testMedicalRegistrationFromSrc\\testData\\t1.png";
+    fixedImage = cv::imread(fixedPath, cv::IMREAD_COLOR);
+    if (!fixedImage.data) {
+        printf("No image data \n");
+        return -1;
+    }
+
+    int a = 1;
 	float mat_origin[9];
 	float mat[6];
 	readMatrixFromFile("D:/testMat.txt", mat_origin);
@@ -48,28 +146,6 @@ int main(int argc, char* argv[]) {
 		mat[i] = mat_origin[i];
 
 	std::cout << "2D image registration" << std::endl;
-
-	/*if (argc != 2) {
-		printf("usage: main <Image_Path>\n");
-		return -1;
-	}*/
-	cv::Mat movingImage, fixedImage;
-	/*image = cv::imread(argv[1], cv::IMREAD_COLOR);*/
-	std::string movingPath = 
-		"E:\\code\\UltraSound\\Registration\\MedicalImageRegistration\\src\\testMedicalRegistrationFromSrc\\testData\\t2.png";
-	movingImage = cv::imread(movingPath, cv::IMREAD_COLOR);
-	if (!movingImage.data) {
-		printf("No image data \n");
-		return -1;
-	}
-
-	std::string fixedPath =
-		"E:\\code\\UltraSound\\Registration\\MedicalImageRegistration\\src\\testMedicalRegistrationFromSrc\\testData\\t1.png";
-	fixedImage = cv::imread(fixedPath, cv::IMREAD_COLOR);
-	if (!fixedImage.data) {
-		printf("No image data \n");
-		return -1;
-	}
 
 	int h = movingImage.size().height;
 	int w = movingImage.size().width;
