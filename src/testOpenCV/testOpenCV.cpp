@@ -10,6 +10,14 @@
 
 using namespace std;
 
+/*
+//	cv::Point center = cv::Point(warp_dst.cols / 2, warp_dst.rows / 2);
+//	double angle = -50.0;
+//	double scale = 0.6;
+//	cv::Mat rot_mat = cv::getRotationMatrix2D(center, angle, scale);
+//	cv::Mat warp_rotate_dst;
+//	warpAffine(warp_dst, warp_rotate_dst, rot_mat, warp_dst.size());
+*/
 std::string storedFilePath = "";
 
 void printMatrix(cv::Mat& mat)
@@ -106,6 +114,7 @@ std::string openFileWindow()
 
 }
 
+void transparentizeImage(cv::Mat& image);
 
 int main(int argc, char* argv[]) 
 {
@@ -117,12 +126,17 @@ int main(int argc, char* argv[])
         std::cout << "Error: No Moving Image" << std::endl;
         return -1;
     }
+
     //"E:\\code\\UltraSound\\Registration\\MedicalImageRegistration\\src\\testMedicalRegistrationFromSrc\\testData\\t2.png";
-    movingImage = cv::imread(movingPath, cv::IMREAD_COLOR);
+    movingImage = cv::imread(movingPath);
+    /*movingImage = cv::imread(movingPath, cv::IMREAD_COLOR);*/
     if (!movingImage.data) {
         printf("No image data \n");
         return -1;
     }
+
+    transparentizeImage(movingImage);
+    return -1;
 
     //fixed image reading
     std::string fixedPath = openFileWindow();
@@ -160,59 +174,82 @@ int main(int argc, char* argv[])
 		}
 	}
 
-
 	printMatrix(applyMatrix_real);
 	/*cv::Point2f center = cv::Point2f(h / 2.0, w / 2.0);
 	cv::Mat rot_mat = cv::getRotationMatrix2D(center, 15, 1.0);
 	printMatrix(rot_mat);*/
 
-	cv::Mat result;
-	cv::warpAffine(movingImage, result, applyMatrix_real, movingImage.size());
+	cv::Mat warpedMovingImage;
+	cv::warpAffine(movingImage, warpedMovingImage, applyMatrix_real, movingImage.size());
 
 
 	cv::Mat overlayImage;
-	cv::addWeighted(result, 0.3, fixedImage, 0.7, 0, overlayImage);
+	/*cv::addWeighted(result, 0.3, fixedImage, 0.7, 0, overlayImage);*/
+    //cv::addWeighted(fixedImage, 0.8, warpedMovingImage, 0.2, 0, overlayImage);
 
 	cv::namedWindow("Display Image", cv::WINDOW_AUTOSIZE);
 	cv::imshow("movingImage", movingImage);
 	cv::imshow("fixedImage", fixedImage);
-	cv::imshow("warped Moving", result);
-	cv::imshow("overlay", overlayImage);
+	cv::imshow("warpedMovingImage", warpedMovingImage);
+	//cv::imshow("overlay", overlayImage);
 	cv::waitKey(0);
 	return 0;
 }
 
-//int main(int argc, char** argv)
-//{
-//	std::string path =
-//		"E:\\code\\UltraSound\\Registration\\MedicalImageRegistration\\src\\testMedicalRegistrationFromSrc\\testData\\t1.png";
-//	cv::Mat src = cv::imread(path);
-//	if (src.empty())
-//	{
-//		cout << "Could not open or find the image!\n" << endl;
-//		cout << "Usage: " << argv[0] << " <Input image>" << endl;
-//		return -1;
-//	}
-//	cv::Point2f srcTri[3];
-//	srcTri[0] = cv::Point2f(0.f, 0.f);
-//	srcTri[1] = cv::Point2f(src.cols - 1.f, 0.f);
-//	srcTri[2] = cv::Point2f(0.f, src.rows - 1.f);
-//	cv::Point2f dstTri[3];
-//	dstTri[0] = cv::Point2f(0.f, src.rows*0.33f);
-//	dstTri[1] = cv::Point2f(src.cols*0.85f, src.rows*0.25f);
-//	dstTri[2] = cv::Point2f(src.cols*0.15f, src.rows*0.7f);
-//	cv::Mat warp_mat = cv::getAffineTransform(srcTri, dstTri);
-//	cv::Mat warp_dst = cv::Mat::zeros(src.rows, src.cols, src.type());
-//	warpAffine(src, warp_dst, warp_mat, warp_dst.size());
-//	cv::Point center = cv::Point(warp_dst.cols / 2, warp_dst.rows / 2);
-//	double angle = -50.0;
-//	double scale = 0.6;
-//	cv::Mat rot_mat = cv::getRotationMatrix2D(center, angle, scale);
-//	cv::Mat warp_rotate_dst;
-//	warpAffine(warp_dst, warp_rotate_dst, rot_mat, warp_dst.size());
-//	cv::imshow("Source image", src);
-//	cv::imshow("Warp", warp_dst);
-//	cv::imshow("Warp + Rotate", warp_rotate_dst);
-//	cv::waitKey();
-//	return 0;
-//}
+void transparentizeImage(cv::Mat& image)
+{
+    cv::Mat rgba;
+    cv::cvtColor(image, rgba, cv::COLOR_BGR2BGRA);
+    //Split the image for access to alpha channel
+    std::vector<cv::Mat> rgbaChannels(4);
+    cv::split(rgba, rgbaChannels);
+    //Assign the mask to the last channel of the image
+    rgbaChannels[3] = 0.2 * rgbaChannels[3];
+    ////Finally concat channels for rgba image
+    cv::merge(rgbaChannels, rgba);
+
+    //std::vector<cv::Mat> rgbChannels;
+    //cv::split(image, rgbChannels);
+
+    //cv::Mat alpha = cv::Mat::zeros(image.rows, image.cols, CV_8UC1);
+    //alpha += 128;
+
+    /*cv::Mat alpha = rgbChannels.at(0) + rgbChannels.at(1) + rgbChannels.at(2);
+    rgbChannels.push_back(alpha);*/
+
+    /*cv::Mat res0;
+    cv::merge(&(rgbChannels[0]), 1, res0);
+
+    cv::Mat res1;
+    cv::merge(&(rgbChannels[1]), 1, res1);
+
+    cv::Mat res2;
+    cv::merge(&(rgbChannels[2]), 1, res2);
+
+    cv::imshow("res0", res0);
+    cv::imshow("res1", res1);
+    cv::imshow("res2", res2);
+
+    cv::Mat res_rgb;
+    std::vector<cv::Mat> mergeArr = { res0, res1, res2 };
+    cv::merge(mergeArr,res_rgb);
+    cv::imshow("res_rgb", res_rgb);*/
+
+    cv::imshow("dddd", rgba);
+    cv::waitKey(0);
+}
+
+void test(cv::Mat& img)
+{
+    //cv::Mat rgba;
+    ////First create the image with alpha channel
+    //cv::cvtColor(img, rgba, cv::COLOR_RGB2RGBA);
+    ////Split the image for access to alpha channel
+    //std::vector<cv::Mat>channels(4);
+    //cv::split(rgba, channels);
+    ////Assign the mask to the last channel of the image
+    //channels[3] = alpha_data;
+    ////Finally concat channels for rgba image
+    //cv::merge(channels, 4, rgba);
+
+}
